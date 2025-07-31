@@ -1,0 +1,6 @@
+@use "@carbon/react"; // Bring in all the styles for Carbon in your root/global stylesheet
+@import "@elyra/canvas/src/index.scss";
+
+html, body, #root, .App {
+  height: 100%
+}
