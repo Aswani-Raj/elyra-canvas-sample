@@ -5,6 +5,42 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React</title>
+    <style>
+      /* Custom styles for diamond nodes to ensure proper scaling */
+      .diamond-node {
+        transform-origin: center;
+      }
+      
+      .diamond-node .d3-node-body {
+        transform-origin: center;
+      }
+      
+      .diamond-node .d3-node-body path {
+        transform-origin: center;
+      }
+      
+      /* Ensure diamond shapes scale properly with node resizing */
+      .diamond-node .d3-node-body polygon {
+        transform-origin: center;
+      }
+      
+      /* Force diamond shapes to scale with container */
+      .diamond-node .d3-node-body-outline {
+        transform-origin: center;
+      }
+      
+      /* Ensure the diamond path scales with the node container */
+      .diamond-node .d3-node-body path[d*="M 50% 0"] {
+        transform-origin: center;
+        transform: scale(1);
+      }
+      
+      /* Make sure the diamond fills the entire node area */
+      .diamond-node .d3-node-body {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
