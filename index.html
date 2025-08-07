@@ -40,6 +40,31 @@
         width: 100%;
         height: 100%;
       }
+      
+      /* Position label inside diamond shape */
+      .diamond-node .d3-node-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-anchor: middle;
+        dominant-baseline: middle;
+        font-size: 12px;
+        font-weight: 500;
+        fill: #1D3649;
+        pointer-events: none;
+        z-index: 10;
+      }
+      
+      /* Ensure label is centered and readable */
+      .diamond-node .d3-node-label text {
+        text-anchor: middle;
+        dominant-baseline: middle;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        fill: #1D3649;
+      }
     </style>
   </head>
   <body>
