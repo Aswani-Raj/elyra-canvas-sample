@@ -18,7 +18,7 @@ enableParentClass: "flows",
 			enableContextMenuOnRightClick: true,
 			enableContextMenuAfterInteraction: true,
 			enableLinkType: "Straight",
-			enableLinkMethod: "Freeform",
+			// enableLinkMethod: "Ports",
 			enableLinkDirection: "LeftRight",
 			enableSplitLinkDroppedOnNode: true,
 			enableSaveZoom: "LocalStorage",
@@ -51,7 +51,7 @@ enableParentClass: "flows",
 				defaultNodeWidth: 200,
 				defaultNodeHeight: 72,
 				nodeShapeDisplay: true,
-        nodeShape: "rectangle", // This will be overridden by layout handler
+        nodeShape: "rectangle",
 				enableContextMenu: true,
 				selectionPath: "M 8 0 L 64 0 64 56 8 56 8 0",
 				ellipsisWidth: 12,
@@ -62,6 +62,7 @@ enableParentClass: "flows",
 				imageHeight: 48,
 				imagePosX: 12,
 				imagePosY: 4,
+        imagePosition: "topLeft",
 				labelEditable: true,
 				labelSingleLine: false,
 				labelPosX: 36,
@@ -82,7 +83,14 @@ enableParentClass: "flows",
       setNodeLabelEditingMode:true,
       displaySubPipeline	:true,
       expandSuperNodeInPlace	:true,
-      enableResizableNodes:true,
+      enableResizableNodes: true,
+      enableNodeResize: true,
+      enableNodeResizeHandles: true,
+      enableNodeResizeFromCorner: true,
+      enableNodeResizeFromEdge: true,
+      nodeResizeHandles: ["nw", "ne", "sw", "se", "n", "s", "e", "w"],
+      enableNodeResizeFromAnyDirection: true,
+      enableNodeResizeFromAnyHandle: true,
 			enableCanvasLayout: {
 				dataLinkArrowHead: true,
 				linkGap: 4,
@@ -109,19 +117,19 @@ enableParentClass: "flows",
  const layoutHandler = (node) => {
    const nodeType = node.op || node.type || "unknown";
    
-   const width = node.currentWidth || 
-                 node.app_data?.currentWidth || 
+   const width = node.layout?.width || 
+                 node.width || 
                  node.app_data?.ui_data?.currentWidth || 
-                 node.layout?.currentWidth ||
-                 node.layout?.width || 
-                 node.width || 120;
-   const height = node.currentHeight || 
-                  node.app_data?.currentHeight || 
+                 node.app_data?.currentWidth || 
+                 node.currentWidth || 
+                 node.layout?.currentWidth || 120;
+   const height = node.layout?.height || 
+                  node.height || 
                   node.app_data?.ui_data?.currentHeight || 
-                  node.layout?.currentHeight ||
-                  node.layout?.height || 
-                  node.height || 80;
-   
+                  node.app_data?.currentHeight || 
+                  node.currentHeight || 
+                  node.layout?.currentHeight || 80;
+      
 
    const shapeMap = {
      "decision": "polygon", 
@@ -131,10 +139,56 @@ enableParentClass: "flows",
 
    let bodyPath = null;
    let selectionPath = null;
-   if (shape === "polygon") {
-     bodyPath = `M ${width/2} 0 L ${width} ${height/2} L ${width/2} ${height} L 0 ${height/2} Z`;
-     selectionPath = bodyPath;
-   }
+   let inputPortPositions = undefined;
+   let outputPortPositions = undefined;
+            if (shape === "polygon") {
+           const minWidth = 60;
+           const minHeight = 40;
+           const actualWidth = Math.max(width, minWidth);
+           const actualHeight = Math.max(height, minHeight);
+           
+           bodyPath = `M ${actualWidth/2} 0 L ${actualWidth} ${actualHeight/2} L ${actualWidth/2} ${actualHeight} L 0 ${actualHeight/2} Z`;
+           selectionPath = bodyPath;
+           inputPortPositions = [{ x_pos: 0 - actualWidth / 2, y_pos: actualHeight / 2, pos: "leftCenter" }];
+           outputPortPositions = [{ x_pos: actualWidth / 2, y_pos: actualHeight / 2 , pos: "rightCenter" }];
+                      if (!node.app_data) node.app_data = {};
+           if (!node.app_data.ui_data) node.app_data.ui_data = {};
+           node.app_data.ui_data.currentWidth = width;
+           node.app_data.ui_data.currentHeight = height;
+           node.app_data.ui_data.diamondDimensions = {
+             width: width,
+             height: height,
+             path: bodyPath
+           };
+           
+           // Ensure the node is resizable
+           return {
+             nodeShape: shape,
+             defaultNodeWidth: actualWidth,
+             defaultNodeHeight: actualHeight,
+             bodyPath,
+             selectionPath,
+             nodeShapeDisplay: true,
+             autoSizeNode: false,
+             class_name: shape === "polygon" ? "diamond-node" : "",
+             nodeResizable: true,
+             nodeMovable: true,
+             bodyPathDisplay: true,
+             labelDisplay: true,
+             labelPosition: "center",
+             labelPosX: width / 2,
+             labelPosY: shape === "polygon" ? (height / 2 + 14) : (height / 2),
+             labelAlign: "center",
+             labelSingleLine: false,
+             labelOutline: false,
+             labelMaxCharacters: null,
+             labelAllowReturnKey: false,
+             labelWidth: width * 0.8,
+             labelHeight: height * 0.6,
+             inputPortPositions,
+             outputPortPositions
+           };
+         }
 
    return {
      nodeShape: shape,
@@ -147,7 +201,22 @@ enableParentClass: "flows",
      class_name: shape === "polygon" ? "diamond-node" : "",
      nodeResizable: true,
      nodeMovable: true,
-     bodyPathDisplay: true
+     bodyPathDisplay: true,
+     labelDisplay: true,
+     labelPosition: "center",
+     labelPosX: width / 2,
+     labelPosY: shape === "polygon" ? (height / 2 + 10) : (height / 2),
+     labelAlign: "center",
+     labelSingleLine: false,
+     labelOutline: false,
+     labelMaxCharacters: null,
+     labelAllowReturnKey: false,
+     labelWidth: width * 0.8,
+     labelHeight: height * 0.6,
+     ...(shape === "polygon" && {
+       inputPortPositions,
+       outputPortPositions
+     })
    };
  };
  
@@ -567,15 +636,120 @@ function App() {
    if (e.editType === "makeLinksDashed") {return
    }
    
-   if (e.editType === "nodeResize" || e.editType === "nodeResizeEnd" || e.editType === "resizeObjects") {
+   if (e.editType && (e.editType.includes("resize") || e.editType.includes("Resize"))) {
+     if (e.selectedObjectIds && e.selectedObjectIds.length > 0) {
+       e.selectedObjectIds.forEach(nodeId => {
+         const pipelineId = canvasController.getCurrentPipelineId();
+         const node = canvasController.getNode(nodeId, pipelineId);
+         
+         if (node && (node.op === "decision" || node.type === "polygon")) {
+           let newWidth = 120;
+           let newHeight = 80;
+           
+           if (e.objectsInfo && e.objectsInfo[nodeId]) {
+             const objectInfo = e.objectsInfo[nodeId];
+             newWidth = objectInfo.width || objectInfo.resizeWidth || 120;
+             newHeight = objectInfo.height || objectInfo.resizeHeight || 80;
+           }
+           if (!node.app_data) node.app_data = {};
+           if (!node.app_data.ui_data) node.app_data.ui_data = {};
+           node.app_data.ui_data.currentWidth = newWidth;
+           node.app_data.ui_data.currentHeight = newHeight;
+           setTimeout(() => {
+             canvasController.setPipelineFlow(canvasController.getPipelineFlow());
+           }, 100);
+         }
+       });
+     }
+   }
+   if (e.objectsInfo || e.data || e.width || e.height || e.selectedObjects) {
      if (e.selectedObjectIds && e.selectedObjectIds.length > 0) {
        const nodeId = e.selectedObjectIds[0];
        const pipelineId = canvasController.getCurrentPipelineId();
        const node = canvasController.getNode(nodeId, pipelineId);
-       
+                if (node && (node.op === "decision" || node.type === "polygon")) {
+           const objectsInfo = e.objectsInfo[nodeId];
+           if (objectsInfo && objectsInfo.isResized) {
+             const newWidth = objectsInfo.width;
+             const newHeight = objectsInfo.height;
+             const diamondPath = `M ${newWidth/2} 0 L ${newWidth} ${newHeight/2} L ${newWidth/2} ${newHeight} L 0 ${newHeight/2} Z`;
+             if (!node.app_data) node.app_data = {};
+             if (!node.app_data.ui_data) node.app_data.ui_data = {};
+             node.app_data.ui_data.currentWidth = newWidth;
+             node.app_data.ui_data.currentHeight = newHeight;
+             node.app_data.ui_data.diamondDimensions = {
+               width: newWidth,
+               height: newHeight,
+               path: diamondPath
+             };             
+             setTimeout(() => {
+               canvasController.setPipelineFlow(canvasController.getPipelineFlow());
+             }, 100);             
+             setTimeout(() => {
+               const nodeElement = document.querySelector(`[data-id="${nodeId}"]`) || 
+                                 document.querySelector(`[id="${nodeId}"]`) ||
+                                 document.querySelector(`[data-node-id="${nodeId}"]`);
+               
+               if (nodeElement) {
+                 const pathElement = nodeElement.querySelector('path[d*="M"]');
+                 if (pathElement) {
+                   console.log("Found path element, updating to:", diamondPath);
+                   pathElement.setAttribute('d', diamondPath);
+                 } 
+               } 
+             }, 200);
+                    }
+       }
+     }
+   }
+   if (e.objectsInfo && Object.keys(e.objectsInfo).length > 0) {
+     Object.keys(e.objectsInfo).forEach(nodeId => {
+       const objectInfo = e.objectsInfo[nodeId];       
+       if (objectInfo && (objectInfo.isResized || objectInfo.width || objectInfo.height)) {
+         const pipelineId = canvasController.getCurrentPipelineId();
+         const node = canvasController.getNode(nodeId, pipelineId); 
+         if (node && (node.op === "decision" || node.type === "polygon")) {
+           const newWidth = objectInfo.width || objectInfo.resizeWidth || 120;
+           const newHeight = objectInfo.height || objectInfo.resizeHeight || 80;
+           if (!node.app_data) node.app_data = {};
+           if (!node.app_data.ui_data) node.app_data.ui_data = {};
+           node.app_data.ui_data.currentWidth = newWidth;
+           node.app_data.ui_data.currentHeight = newHeight;
+                      setTimeout(() => {
+             canvasController.setPipelineFlow(canvasController.getPipelineFlow());
+           }, 100);
+         }
+       }
+     });
+   }
+   
+   if (e.selectedObjects && e.selectedObjects.length > 0) {
+     e.selectedObjects.forEach(selectedNode => {
+       if (selectedNode.op === "decision" || selectedNode.type === "polygon") {
+         if (selectedNode.width || selectedNode.height || selectedNode.layout?.width || selectedNode.layout?.height) {
+           const newWidth = selectedNode.width || selectedNode.layout?.width || 120;
+           const newHeight = selectedNode.height || selectedNode.layout?.height || 80;
+           if (!selectedNode.app_data) selectedNode.app_data = {};
+           if (!selectedNode.app_data.ui_data) selectedNode.app_data.ui_data = {};
+           selectedNode.app_data.ui_data.currentWidth = newWidth;
+           selectedNode.app_data.ui_data.currentHeight = newHeight;
+           setTimeout(() => {
+             canvasController.setPipelineFlow(canvasController.getPipelineFlow());
+           }, 100);
+         }
+       }
+     });
+   }
+   
+   // Handle all possible resize events
+   if (e.editType && (e.editType.includes("resize") || e.editType.includes("Resize"))) {
+     if (e.selectedObjectIds && e.selectedObjectIds.length > 0) {
+       const nodeId = e.selectedObjectIds[0];
+       const pipelineId = canvasController.getCurrentPipelineId();
+       const node = canvasController.getNode(nodeId, pipelineId);
        if (node && (node.op === "decision" || node.type === "polygon")) {
          let newWidth = 120;
-         let newHeight = 80;         
+         let newHeight = 80;
          if (e.objectsInfo && e.objectsInfo[nodeId]) {
            const objectInfo = e.objectsInfo[nodeId];
            newWidth = objectInfo.resizeWidth || objectInfo.width || 120;
@@ -602,9 +776,7 @@ function App() {
              layout: {
                ...node.layout,
                width: newWidth,
-               height: newHeight,
-               currentWidth: newWidth,
-               currentHeight: newHeight
+               height: newHeight
              },
              app_data: {
                ...node.app_data,
@@ -628,10 +800,7 @@ function App() {
                  height: newHeight,
                  path: diamondPath
                }
-             },
-             currentWidth: newWidth,
-             currentHeight: newHeight,
-             diamondPath: diamondPath
+             }
            };
            
            canvasController.setNodeProperties(nodeId, finalNode, pipelineId);
@@ -697,6 +866,51 @@ function App() {
            console.error("Error updating diamond shape:", error);
          }
        }
+       
+       // Also check if any diamond nodes are in the selected objects
+       if (e.selectedObjects && e.selectedObjects.length > 0) {
+         e.selectedObjects.forEach(selectedNode => {
+           if (selectedNode.op === "decision" || selectedNode.type === "polygon") {
+             const objectsInfo = e.objectsInfo[selectedNode.id];
+             if (objectsInfo && objectsInfo.isResized) {
+               const newWidth = objectsInfo.width;
+               const newHeight = objectsInfo.height;
+               const diamondPath = `M ${newWidth/2} 0 L ${newWidth} ${newHeight/2} L ${newWidth/2} ${newHeight} L 0 ${newHeight/2} Z`;
+               if (!selectedNode.app_data) selectedNode.app_data = {};
+               if (!selectedNode.app_data.ui_data) selectedNode.app_data.ui_data = {};
+               selectedNode.app_data.ui_data.currentWidth = newWidth;
+               selectedNode.app_data.ui_data.currentHeight = newHeight;
+               selectedNode.app_data.ui_data.diamondDimensions = {
+                 width: newWidth,
+                 height: newHeight,
+                 path: diamondPath
+               };
+               
+               setTimeout(() => {
+                 canvasController.setPipelineFlow(canvasController.getPipelineFlow());
+               }, 100);
+               
+               // Also try direct DOM manipulation to update the diamond shape
+               setTimeout(() => {
+                 const nodeElement = document.querySelector(`[data-id="${selectedNode.id}"]`) || 
+                                   document.querySelector(`[id="${selectedNode.id}"]`) ||
+                                   document.querySelector(`[data-node-id="${selectedNode.id}"]`);
+                 
+                 if (nodeElement) {
+                   const pathElement = nodeElement.querySelector('path[d*="M"]');
+                   if (pathElement) {
+                     pathElement.setAttribute('d', diamondPath);
+                   } else {
+                     console.log("No path element found in selected node");
+                   }
+                 } else {
+                   console.log("No selected node element found for DOM manipulation");
+                 }
+               }, 200);
+             }
+           }
+         });
+       }
      }
    }
     
@@ -705,7 +919,6 @@ function App() {
         try {
           const selectedObjects = canvasController.getSelectedObjects();
           const selectedLinks = selectedObjects.filter(obj => obj.type === "nodeLink");
-          
           if (selectedLinks.length > 0) {
             const pipelineId = canvasController.getCurrentPipelineId();
             const pipelineFlow = canvasController.getPipelineFlow();
@@ -1356,7 +1569,9 @@ function App() {
 
   return (
     <>
-      {canvasController && (
+      {canvasController && 
+        <>
+        <ExportCanvas/>
         <Canvas
           canvasController={canvasController}
           config={canvasConfig}
@@ -1364,6 +1579,12 @@ function App() {
           showRightFlyout={showRightFlyout}
           layoutHandler={layoutHandler}
           editActionHandler={(e) => {
+            handleEditAction(e);
+          }}
+          resizeHandler={(e) => {;
+            handleEditAction(e);
+          }}
+          mouseHandler={(e) => {
             handleEditAction(e);
           }}
           contextMenuHandler={(source, defaultMenu) => contextMenuHandler(source, defaultMenu)}
@@ -1427,7 +1648,8 @@ function App() {
             }
           }}
         />
-      )}
+        </>
+}
     </>
   );
 }
