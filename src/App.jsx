@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import Canvas from "./canvas"
-import { CanvasController, CommonProperties } from "@elyra/canvas";
+import { CanvasController } from "@elyra/canvas";
 import PALETTE from "./pallette.json";
 import PIPELINE from "./canvas.json";
-import ExportCanvas from "./export";
+import ModifyLabel from "./modifyLabel";
+import NodeProperties from "./NodeProperties";
+import NodeStyling from "./NodeStyling";
 
 const canvasConfig = {
 enableParentClass: "flows",
@@ -231,7 +233,9 @@ enableParentClass: "flows",
     const nodeMenu= [
         { action: "deleteSelectedObjects", label: "Delete" },
         { divider: true},
-        { action: "myApp_Action1", label: "Details" },
+        { action: "myApp_Action1", label: "Properties" },
+        { action: "myApp_Action2", label: "Styling" },
+        { action: "setNodeLabelEditingMode", label: "Label Formatting" },
         { action: "makeLinksDashed", label: "Make Links Dashed" },
         { action: "paste", label: "Paste from clipboard", enable: false }
     ];
@@ -335,6 +339,8 @@ function App() {
   const [canvasController, setCanvasController] = useState();
   const [decorationTexts, setDecorationTexts] = useState({});
   const [showRightFlyout, setShowRightFlyout] = useState(false);
+  const [showLabelEditPanel, setShowLabelEditPanel] = useState(false);
+  const [showNodeStyling, setShowNodeStyling] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [nodeProperties, setNodeProperties] = useState({});
 
@@ -346,6 +352,36 @@ function App() {
     cc.openAllPaletteCategories();
     setCanvasController(cc);
   }, []);
+
+  useEffect(() => {
+    if (canvasController) {
+      applyTextStyleToAllNodes();
+      applyNodeStyleToAllNodes();
+      
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+            setTimeout(() => {
+              applyTextStyleToAllNodes();
+              applyNodeStyleToAllNodes();
+            }, 50);
+          }
+        });
+      });
+      
+      const canvasContainer = document.querySelector('.d3-node-container, .canvas-container, [data-id="canvas"]');
+      if (canvasContainer) {
+        observer.observe(canvasContainer, {
+          childList: true,
+          subtree: true
+        });
+      }
+      
+      return () => {
+        observer.disconnect();
+      };
+    }
+  }, [canvasController]);
 
   const addLinkLabel = (linkId) => {    
     if (!canvasController) return;
@@ -495,7 +531,10 @@ function App() {
     }
   };
 
-  const handleEditAction = (e) => {    
+  const handleEditAction = (e) => {  
+       const nodeId = e.selectedObjectIds[0];
+        const pipelineId = canvasController.getCurrentPipelineId();
+        const node = canvasController.getNode(nodeId, pipelineId);
     if (e.editType === "editDecorationLabel") {
       const { decorationId, linkId } = e.editData || {};      
       if (decorationId && linkId) {
@@ -552,12 +591,8 @@ function App() {
       }
     }
     
-    // Handle Details
     if (e.editType === "myApp_Action1") {      
       if (e.selectedObjectIds && e.selectedObjectIds.length > 0) {
-        const nodeId = e.selectedObjectIds[0];
-        const pipelineId = canvasController.getCurrentPipelineId();
-        const node = canvasController.getNode(nodeId, pipelineId);
         if (node) {
           const nodeData = {
             ...node,
@@ -571,6 +606,29 @@ function App() {
           setSelectedNodeId(nodeId);
           setNodeProperties(nodeData);
           setShowRightFlyout(true);
+          setShowLabelEditPanel(false);
+          setShowNodeStyling(false);
+        }
+      }
+    }
+    
+    if (e.editType === "myApp_Action2") {      
+      if (e.selectedObjectIds && e.selectedObjectIds.length > 0) {
+        if (node) {
+          const nodeData = {
+            ...node,
+            label: node.app_data?.ui_data?.label || node.label || "Node",
+            description: node.app_data?.ui_data?.description || "Node Description",
+            op: node.op || node.type || "unknown",
+            x_pos: node.x_pos || 0,
+            y_pos: node.y_pos || 0
+          };
+          
+          setSelectedNodeId(nodeId);
+          setNodeProperties(nodeData);
+          setShowRightFlyout(true);
+          setShowNodeStyling(true);
+          setShowLabelEditPanel(false);
         }
       }
     }
@@ -788,15 +846,11 @@ function App() {
                updateCount++;             
                if (updateCount < maxUpdates) {
                  setTimeout(maintainDiamondShape, 50);
-               } else {
-                 console.log(`Reached max updates (${maxUpdates}), stopping maintenance`);
-               }
+               } 
              } else {
                updateCount++;             
                if (updateCount < maxUpdates) {
                  setTimeout(maintainDiamondShape, 50);
-               } else {
-                 console.log(`Gave up after ${maxUpdates} attempts`);
                }
              }
            };
@@ -890,6 +944,23 @@ function App() {
           console.log("Error deleting selected links:", error);
         }
       }
+    }
+    if(e.editType==="setNodeLabelEditingMode"){
+
+      if (node) {
+          const nodeData = {
+            ...node,
+            label: node.app_data?.ui_data?.label || node.label || "Node",
+            description: node.app_data?.ui_data?.description || "Node Description",
+            op: node.op || node.type || "unknown",
+            x_pos: node.x_pos || 0,
+            y_pos: node.y_pos || 0
+          };
+          setShowRightFlyout(true)
+           setShowLabelEditPanel(true)
+          setSelectedNodeId(nodeId);
+          setNodeProperties(nodeData);
+        }
     }
   };
 
@@ -1094,7 +1165,7 @@ function App() {
     }
   };
 
-  const handlePropertyChange = (propertyId, value) => {    
+  const handlePropertyChange = (propertyId, value) => {        
     if (selectedNodeId && canvasController) {
       const pipelineId = canvasController.getCurrentPipelineId();
       const node = canvasController.getNode(selectedNodeId, pipelineId);
@@ -1118,10 +1189,63 @@ function App() {
               description: value
             }
           };
+        } else if (propertyId === "hyperlink") {
+          updatedNode.app_data = {
+            ...updatedNode.app_data,
+            ui_data: {
+              ...updatedNode.app_data?.ui_data,
+              hyperlink: value
+            }
+          };
+        } else if (propertyId === "nodeStyle") {
+          const newNodeStyle = {
+            ...updatedNode.app_data?.ui_data,
+            ...value
+          };          
+          updatedNode.app_data = {
+            ...updatedNode.app_data,
+            ui_data: newNodeStyle
+          };
+          
+          applyNodeStyleToCanvas(selectedNodeId, value);
+          
+          try {
+            if (canvasController) {
+              const pipelineId = canvasController.getCurrentPipelineId();              
+              canvasController.setNodeProperties(selectedNodeId, updatedNode, pipelineId);
+            }
+          } catch (error) {
+            console.log('Error updating node through controller:', error);
+          }
+          
+          setTimeout(() => {
+            applyNodeStyleToAllNodes();
+          }, 100);
+        } else if (propertyId === "textStyle") {
+          const newTextStyle = {
+            ...updatedNode.app_data?.ui_data?.textStyle,
+            ...value
+          };
+          
+          updatedNode.app_data = {
+            ...updatedNode.app_data,
+            ui_data: {
+              ...updatedNode.app_data?.ui_data,
+              textStyle: newTextStyle
+            }
+          };
+          applyTextStyleToCanvas(selectedNodeId, newTextStyle);
+          applyTextStyleToAllLabels(newTextStyle);
         }
-                try {
+        
+        try {
           canvasController.setNodeProperties(selectedNodeId, updatedNode, pipelineId);
-          setNodeProperties(updatedNode);
+          setNodeProperties(updatedNode);     
+          if (propertyId === "textStyle") {
+            setTimeout(() => {
+              applyTextStyleToAllNodes();
+            }, 100);
+          }
         } catch (error) {
           console.error("Error updating node properties:", error);
         }
@@ -1129,89 +1253,319 @@ function App() {
     }
   };
 
+  const applyTextStyleToCanvas = (nodeId, textStyle) => {
+    setTimeout(() => {
+      let nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+      if (!nodeElement) {
+        nodeElement = document.querySelector(`[id="${nodeId}"]`);
+      }
+      if (!nodeElement) {
+        nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`);
+      }
+      if (!nodeElement) {
+        return;
+      }
+
+      const labelElements = nodeElement.querySelectorAll('.d3-node-label');
+      
+      if (labelElements.length === 0) {
+        return;
+      }
+
+      const applyStyleToElement = (element) => {
+        if (textStyle.fontSize) {
+          element.style.fontSize = `${textStyle.fontSize}px`;
+          element.setAttribute('font-size', `${textStyle.fontSize}px`);
+        }
+        if (textStyle.fontColor) {
+          element.style.fill = textStyle.fontColor;
+          element.style.color = textStyle.fontColor;
+          element.setAttribute('fill', textStyle.fontColor);
+        }
+        if (textStyle.fontWeight) {
+          element.style.fontWeight = textStyle.fontWeight;
+          element.setAttribute('font-weight', textStyle.fontWeight);
+        }
+        if (textStyle.fontStyle) {
+          element.style.fontStyle = textStyle.fontStyle;
+          element.setAttribute('font-style', textStyle.fontStyle);
+        }
+        if (textStyle.textDecoration) {
+          element.style.textDecoration = textStyle.textDecoration;
+          element.setAttribute('text-decoration', textStyle.textDecoration);
+        }
+        if (textStyle.textAlign) {
+          element.style.textAlign = textStyle.textAlign;
+          element.setAttribute('text-anchor', textStyle.textAlign === 'center' ? 'middle' : 
+                              textStyle.textAlign === 'right' ? 'end' : 'start');
+        }
+      };
+
+      labelElements.forEach(labelElement => {
+        applyStyleToElement(labelElement);
+        const childTextElements = labelElement.querySelectorAll('text, tspan');
+        childTextElements.forEach(childElement => {
+          applyStyleToElement(childElement);
+        });        
+        const foreignObjects = labelElement.querySelectorAll('foreignObject');
+        foreignObjects.forEach(foreignObj => {
+          const textElements = foreignObj.querySelectorAll('text, tspan, div');
+          textElements.forEach(textElement => {
+            applyStyleToElement(textElement);
+          });
+        });
+      });
+    }, 200);
+  };
+
+  const applyTextStyleToAllNodes = () => {
+    if (!canvasController) return;
+    
+    setTimeout(() => {
+      const pipelineId = canvasController.getCurrentPipelineId();
+      const nodes = canvasController.getNodes(pipelineId);
+      
+      nodes.forEach(node => {
+        if (node.app_data?.ui_data?.textStyle) {
+          applyTextStyleToCanvas(node.id, node.app_data.ui_data.textStyle);
+        }
+      });
+    }, 300);
+  };
+
+  const applyNodeStyleToAllNodes = () => {
+    if (!canvasController) return;
+    
+    setTimeout(() => {
+      const pipelineId = canvasController.getCurrentPipelineId();
+      const nodes = canvasController.getNodes(pipelineId);
+      
+      nodes.forEach(node => {
+        if (node.app_data?.ui_data) {
+          const uiData = node.app_data.ui_data;
+          const nodeStyle = {
+            fillColor: uiData.fillColor,
+            borderColor: uiData.borderColor,
+            borderWidth: uiData.borderWidth
+          };
+          
+          if (nodeStyle.fillColor || nodeStyle.borderColor || nodeStyle.borderWidth) {
+            applyNodeStyleToCanvas(node.id, nodeStyle);
+          }
+        }
+      });
+    }, 300);
+  };
+
+  const applyTextStyleToAllLabels = (textStyle) => {
+    setTimeout(() => {
+      const allLabelElements = document.querySelectorAll('.d3-node-label');
+      
+      allLabelElements.forEach(labelElement => {
+        if (textStyle.fontSize) {
+          labelElement.style.fontSize = `${textStyle.fontSize}px`;
+          labelElement.setAttribute('font-size', `${textStyle.fontSize}px`);
+        }
+        if (textStyle.fontColor) {
+          labelElement.style.fill = textStyle.fontColor;
+          labelElement.style.color = textStyle.fontColor;
+          labelElement.setAttribute('fill', textStyle.fontColor);
+        }
+        if (textStyle.fontWeight) {
+          labelElement.style.fontWeight = textStyle.fontWeight;
+          labelElement.setAttribute('font-weight', textStyle.fontWeight);
+        }
+        if (textStyle.fontStyle) {
+          labelElement.style.fontStyle = textStyle.fontStyle;
+          labelElement.setAttribute('font-style', textStyle.fontStyle);
+        }
+        if (textStyle.textDecoration) {
+          labelElement.style.textDecoration = textStyle.textDecoration;
+          labelElement.setAttribute('text-decoration', textStyle.textDecoration);
+        }
+        if (textStyle.textAlign) {
+          labelElement.style.textAlign = textStyle.textAlign;
+          labelElement.setAttribute('text-anchor', textStyle.textAlign === 'center' ? 'middle' : 
+                                  textStyle.textAlign === 'right' ? 'end' : 'start');
+        }
+        
+        const childTextElements = labelElement.querySelectorAll('text, tspan');
+        childTextElements.forEach(childElement => {
+          if (textStyle.fontSize) {
+            childElement.style.fontSize = `${textStyle.fontSize}px`;
+            childElement.setAttribute('font-size', `${textStyle.fontSize}px`);
+          }
+          if (textStyle.fontColor) {
+            childElement.style.fill = textStyle.fontColor;
+            childElement.style.color = textStyle.fontColor;
+            childElement.setAttribute('fill', textStyle.fontColor);
+          }
+          if (textStyle.fontWeight) {
+            childElement.style.fontWeight = textStyle.fontWeight;
+            childElement.setAttribute('font-weight', textStyle.fontWeight);
+          }
+          if (textStyle.fontStyle) {
+            childElement.style.fontStyle = textStyle.fontStyle;
+            childElement.setAttribute('font-style', textStyle.fontStyle);
+          }
+          if (textStyle.textDecoration) {
+            childElement.style.textDecoration = textStyle.textDecoration;
+            childElement.setAttribute('text-decoration', textStyle.textDecoration);
+          }
+          if (textStyle.textAlign) {
+            childElement.style.textAlign = textStyle.textAlign;
+            childElement.setAttribute('text-anchor', textStyle.textAlign === 'center' ? 'middle' : 
+                                    textStyle.textAlign === 'right' ? 'end' : 'start');
+          }
+        });
+      });   
+    }, 200);
+  };
+
+    const applyNodeStyleToCanvas = (nodeId, nodeStyle) => {
+        let nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+    if (!nodeElement) {
+      nodeElement = document.querySelector(`[data-id="node_grp_1_${nodeId}"]`);
+    }
+    if (!nodeElement) {
+      nodeElement = document.querySelector(`[id="${nodeId}"]`);
+    }
+    if (!nodeElement) {
+      nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`);
+    }
+    if (!nodeElement) {
+      console.log(`Node element not found for ID: ${nodeId}`);
+      return;
+    }
+      if (nodeStyle.fillColor) {
+        const bodyOutlineElements = nodeElement.querySelectorAll('.d3-node-body-outline');    
+        bodyOutlineElements.forEach(element => {
+          element.style.fill = nodeStyle.fillColor;
+          element.setAttribute('fill', nodeStyle.fillColor);          
+          element.style.setProperty('--fill-color', nodeStyle.fillColor);         
+        });
+      }
+
+      // Apply border color and width to d3-node-body-outline specifically
+      if (nodeStyle.borderColor || nodeStyle.borderWidth) {
+        const bodyOutlineElements = nodeElement.querySelectorAll('.d3-node-body-outline');        
+        bodyOutlineElements.forEach(borderElement => {
+          if (nodeStyle.borderColor) {
+            borderElement.style.stroke = nodeStyle.borderColor;
+            borderElement.setAttribute('stroke', nodeStyle.borderColor);
+          }
+          if (nodeStyle.borderWidth) {
+            borderElement.style.strokeWidth = `${nodeStyle.borderWidth}px`;
+            borderElement.setAttribute('stroke-width', nodeStyle.borderWidth);
+          }
+        });
+      }
+
+      const styleId = `node-style-${nodeId}`;
+      let existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+      if (nodeStyle.fillColor || nodeStyle.borderColor || nodeStyle.borderWidth) {
+          const style = document.createElement('style');
+          style.id = styleId;
+          style.textContent = `
+            /* Target both the direct node ID and the group-prefixed version */
+            [data-id="${nodeId}"] .d3-node-body-outline,
+            [data-id="node_grp_1_${nodeId}"] .d3-node-body-outline {
+              ${nodeStyle.fillColor ? `fill: ${nodeStyle.fillColor} !important;` : ''}
+              ${nodeStyle.borderColor ? `stroke: ${nodeStyle.borderColor} !important;` : ''}
+              ${nodeStyle.borderWidth ? `stroke-width: ${nodeStyle.borderWidth}px !important;` : ''}
+            }
+            
+            /* Override any CSS custom properties the canvas might be using */
+            [data-id="${nodeId}"] .d3-node-body-outline,
+            [data-id="node_grp_1_${nodeId}"] .d3-node-body-outline {
+              ${nodeStyle.fillColor ? `--cds-layer-selected-inverse: ${nodeStyle.fillColor} !important;` : ''}
+              ${nodeStyle.fillColor ? `--cds-layer: ${nodeStyle.fillColor} !important;` : ''}
+              ${nodeStyle.fillColor ? `--cds-layer-accent: ${nodeStyle.fillColor} !important;` : ''}
+            }
+          `;
+          document.head.appendChild(style);
+         }
+
+      setTimeout(() => {
+        if (canvasController) {
+          try {
+            canvasController.setPipelineFlow(canvasController.getPipelineFlow());
+          } catch (error) {
+            console.log('Error refreshing canvas:', error);
+          }
+        }
+        
+        const event = new Event('resize');
+        window.dispatchEvent(event);
+        
+        setTimeout(() => {
+          const refreshedNodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+          if (refreshedNodeElement) {
+            const refreshedBodyOutlineElements = refreshedNodeElement.querySelectorAll('.d3-node-body-outline');
+            
+            refreshedBodyOutlineElements.forEach(element => {
+              if (nodeStyle.fillColor) {
+                element.style.setProperty('fill', nodeStyle.fillColor, 'important');
+                element.setAttribute('fill', nodeStyle.fillColor);
+              }
+              if (nodeStyle.borderColor) {
+                element.style.setProperty('stroke', nodeStyle.borderColor, 'important');
+                element.setAttribute('stroke', nodeStyle.borderColor);
+              }
+              if (nodeStyle.borderWidth) {
+                element.style.setProperty('stroke-width', `${nodeStyle.borderWidth}px`, 'important');
+                element.setAttribute('stroke-width', nodeStyle.borderWidth);
+              }
+            });
+          }
+        }, 150);
+      }, 100);
+  };
+
   const handleClosePropertiesPanel = () => {
     setShowRightFlyout(false);
+    setShowLabelEditPanel(false);
+    setShowNodeStyling(false);
     setSelectedNodeId(null);
     setNodeProperties({});
   };
 
-  const rightFlyoutContent = showRightFlyout ? (
-    <div style={{ display: 'flex', height: '100%', flexDirection: 'column', padding: '16px' }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        borderBottom: '1px solid #ddd',
-        paddingBottom: '16px',
-        marginBottom: '16px'
-      }}>
-        <h3 style={{ margin: 0, fontSize: '16px' }}>Node Properties</h3>
-        <button 
-          onClick={handleClosePropertiesPanel}
-          style={{
-            background: 'none',
-            border: 'none',
-            fontSize: '18px',
-            cursor: 'pointer',
-            padding: '4px 8px'
-          }}
-        >
-          ×
-        </button>
-      </div>
-      
-      <div style={{ flex: 1 }}>
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Label:</label>
-          <input 
-            type="text" 
-            value={nodeProperties.label || ''} 
-            onChange={(e) => handlePropertyChange('label', e.target.value)}
-            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+  const getRightFlyoutContent = () => {
+    if (showRightFlyout) {
+      if (showLabelEditPanel) {
+        return (
+          <ModifyLabel 
+            nodeProperties={nodeProperties}
+            onClose={handleClosePropertiesPanel}
+            onPropertyChange={handlePropertyChange}
           />
-        </div>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Description:</label>
-          <textarea 
-            value={nodeProperties.description || ''} 
-            onChange={(e) => handlePropertyChange('description', e.target.value)}
-            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '60px' }}
+        );
+      } else if (showNodeStyling) {
+        return (
+          <NodeStyling
+            nodeProperties={nodeProperties}
+            onPropertyChange={handlePropertyChange}
+            onClose={handleClosePropertiesPanel}
           />
-        </div>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Node Type:</label>
-          <input 
-            type="text" 
-            value={nodeProperties.op || nodeProperties.type || 'unknown'} 
-            readOnly
-            style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: '#f5f5f5' }}
+        );
+      } else {
+        return (
+          <NodeProperties
+            nodeProperties={nodeProperties}
+            onPropertyChange={handlePropertyChange}
+            onClose={handleClosePropertiesPanel}
           />
-        </div>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>Position:</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input 
-              type="number" 
-              value={nodeProperties.x_pos || 0} 
-              readOnly
-              style={{ flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: '#f5f5f5' }}
-              placeholder="X"
-            />
-            <input 
-              type="number" 
-              value={nodeProperties.y_pos || 0} 
-              readOnly
-              style={{ flex: 1, padding: '8px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: '#f5f5f5' }}
-              placeholder="Y"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  ) : null;
+        );
+      }
+    } else {
+      return null;
+    }
+  };
+
+  const rightFlyoutContent = getRightFlyoutContent();
 
   return (
     <>
@@ -1235,7 +1589,7 @@ function App() {
           }}
           contextMenuHandler={(source, defaultMenu) => contextMenuHandler(source, defaultMenu)}
           tipHandler={(toolTipType, data) => canvasToolTipHandler(toolTipType, data)}
-          clickActionHandler={(e) => {
+          clickActionHandler={(e) => {            
             if (e.objectType === "node") {
               setTimeout(() => {
                 if (canvasController) {
