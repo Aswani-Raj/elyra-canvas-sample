@@ -179,7 +179,7 @@
         {
           "id": "",
           "type": "execution_node",
-          "op": "balance",
+          "op": "rectangle",
           "inputs": [
             {
               "id": "inPort",
@@ -211,9 +211,8 @@
           "parameters": {},
           "app_data": {
             "ui_data": {
-              "label": "Balance",
+              "label": "Rectangle",
               "description": "Corrects imbalances in the data using specified conditions",
-              "image": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4NCjwhLS0gR2VuZXJhdG9yOiBBZG9iZSBJbGx1c3RyYXRvciAxOS4xLjAsIFNWRyBFeHBvcnQgUGx1Zy1JbiAuIFNWRyBWZXJzaW9uOiA2LjAwIEJ1aWxkIDApICAtLT4NCjxzdmcgdmVyc2lvbj0iMS4xIiBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeD0iMHB4IiB5PSIwcHgiDQoJIHZpZXdCb3g9IjE2IC0xNS4xIDQ3LjMgNDIuMSIgc3R5bGU9ImVuYWJsZS1iYWNrZ3JvdW5kOm5ldyAxNiAtMTUuMSA0Ny4zIDQyLjE7IiB4bWw6c3BhY2U9InByZXNlcnZlIj4NCjxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+DQoJLnN0MHtmaWxsOiMxRDM2NDk7fQ0KCS5zdDF7ZmlsbDpub25lO3N0cm9rZTojMTUyOTM1O3N0cm9rZS13aWR0aDoyO3N0cm9rZS1taXRlcmxpbWl0OjEwO30NCgkuc3Qye2ZpbGw6bm9uZTtzdHJva2U6I0Y5RjlGQjtzdHJva2Utd2lkdGg6MztzdHJva2UtbWl0ZXJsaW1pdDoxMDt9DQoJLnN0M3tmaWxsOm5vbmU7c3Ryb2tlOiM0MUQ2QzM7c3Ryb2tlLXdpZHRoOjI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7fQ0KCS5zdDR7ZmlsbDojRjlGOUZCO30NCgkuc3Q1e2ZpbGw6bm9uZTtzdHJva2U6IzQxRDZDMztzdHJva2Utd2lkdGg6MztzdHJva2UtbWl0ZXJsaW1pdDoxMDt9DQo8L3N0eWxlPg0KPGc+DQoJDQoJCTxpbWFnZSBzdHlsZT0ib3ZlcmZsb3c6dmlzaWJsZTtvcGFjaXR5OjAuNjY7ZW5hYmxlLWJhY2tncm91bmQ6bmV3ICAgIDsiIHdpZHRoPSI1MiIgaGVpZ2h0PSI0NiIgeGxpbms6aHJlZj0iMTdEQzUzRUUyN0I3NzZBMi5wbmciICB0cmFuc2Zvcm09Im1hdHJpeCgxIDAgMCAxIDEzLjY1IC0xNy4wNSkiPg0KCTwvaW1hZ2U+DQoJPGc+DQoJCTxwb2x5Z29uIGNsYXNzPSJzdDAiIHBvaW50cz0iMjcuOCwyMyAxNyw0LjUgMjcuOCwtMTQgNDkuMiwtMTQgNjAuMSw0LjUgNDkuMiwyMyAJCSIvPg0KCQk8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjI3LjgsMjMgMTcsNC41IDI3LjgsLTE0IDQ5LjIsLTE0IDYwLjEsNC41IDQ5LjIsMjMgCQkiLz4NCgk8L2c+DQo8L2c+DQo8bGluZSBjbGFzcz0ic3QyIiB4MT0iMjQuNiIgeTE9IjQuNSIgeDI9IjI5LjYiIHkyPSI0LjUiLz4NCjxsaW5lIGNsYXNzPSJzdDMiIHgxPSIzMy43IiB5MT0iMTUiIHgyPSIzOS43IiB5Mj0iMTUiLz4NCjxwb2x5Z29uIGNsYXNzPSJzdDQiIHBvaW50cz0iNDguNyw4LjUgNDguNyw2IDQyLjcsNiA0Mi43LDMgNDguNywzIDQ4LjcsLTAuMiA1Ni4yLDQuMiAiLz4NCjxsaW5lIGNsYXNzPSJzdDMiIHgxPSIzNi43IiB5MT0iMTQiIHgyPSIzNi43IiB5Mj0iNSIvPg0KPGxpbmUgY2xhc3M9InN0NSIgeDE9IjMwLjUiIHkxPSI4LjUiIHgyPSI0Mi4yIiB5Mj0iMC42Ii8+DQo8L3N2Zz4NCg==",
               "x_pos": 0,
               "y_pos": 0
             }
