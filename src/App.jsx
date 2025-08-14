@@ -6,6 +6,7 @@ import PIPELINE from "./canvas.json";
 import ModifyLabel from "./modifyLabel";
 import NodeProperties from "./NodeProperties";
 import NodeStyling from "./NodeStyling";
+import ExportCanvas from "./export";
 
 const canvasConfig = {
 enableParentClass: "flows",
