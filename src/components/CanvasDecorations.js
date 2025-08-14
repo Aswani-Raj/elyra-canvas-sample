@@ -156,7 +156,6 @@ export const updateDecorationText = (canvasController, linkId, decorationId, new
   if (!canvasController) return;
   
   try {
-    // Update state first
     setDecorationTexts(prev => ({
       ...prev,
       [decorationId]: newText

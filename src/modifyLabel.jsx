@@ -15,6 +15,8 @@ const ModifyLabel = ({ nodeProperties, onClose, onPropertyChange }) => {
   useEffect(() => {
     if (nodeProperties && nodeProperties.label) {
       setLabelText(nodeProperties.label);
+    } else if (nodeProperties && nodeProperties.app_data && nodeProperties.app_data.ui_data && nodeProperties.app_data.ui_data.label) {
+      setLabelText(nodeProperties.app_data.ui_data.label);
     }
     
     // Load existing text styling if available
@@ -91,8 +93,11 @@ const ModifyLabel = ({ nodeProperties, onClose, onPropertyChange }) => {
 
   const handleLabelChange = (text) => {
     setLabelText(text);
+  };
+
+  const handleLabelBlur = () => {
     if (onPropertyChange) {
-      onPropertyChange('label', text);
+      onPropertyChange('label', labelText);
     }
   };
 
@@ -131,12 +136,12 @@ const ModifyLabel = ({ nodeProperties, onClose, onPropertyChange }) => {
 
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column', padding: '16px' ,overflow:"auto"}}>
-            {/* Text Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Label Text:</label>
         <textarea
           value={labelText}
           onChange={(e) => handleLabelChange(e.target.value)}
+          onBlur={handleLabelBlur}
           style={{
             width: '100%',
             padding: '8px',

@@ -61,6 +61,7 @@ function App() {
         const updatedNode = { ...node };
         
         if (propertyId === "label") {
+          updatedNode.label = value;
           updatedNode.app_data = {
             ...updatedNode.app_data,
             ui_data: {
